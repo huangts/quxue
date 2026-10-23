@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>趣学</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
+      font-size: 18px;
+      line-height: 1.5;
+      color: #1d2430;
+      background:
+        radial-gradient(1200px 400px at 10% -10%, #d7eef2 0%, transparent 55%),
+        #f3efe6;
+    }
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 28px 16px 40px;
+      padding-bottom: calc(40px + env(safe-area-inset-bottom));
+    }
+    header h1 { margin: 0; font-size: 32px; letter-spacing: 0.04em; }
+    header p { margin: 6px 0 0; color: #3d4a55; }
+    .card {
+      display: block;
+      margin-top: 22px;
+      padding: 18px 18px 16px;
+      background: #fffdf8;
+      border: 1px solid #e4d8c4;
+      border-radius: 18px;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 10px 28px rgba(70, 50, 20, 0.06);
+    }
+    .card:focus-visible { outline: 3px solid #155e75; outline-offset: 3px; }
+    .book { margin: 0; font-size: 14px; color: #155e75; }
+    .card h2 { margin: 4px 0; font-size: 26px; }
+    .theme { margin: 0; font-size: 20px; }
+    .go {
+      display: inline-flex;
+      align-items: center;
+      min-height: 48px;
+      margin-top: 12px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: #155e75;
+      color: #fff;
+      font-size: 18px;
+    }
+    .status { margin: 8px 0 0; color: #444; }
+    footer { margin-top: 28px; color: #5c6570; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>趣学</h1>
+      <p>数学课。打开就能学，做完存在这台设备上。</p>
+    </header>
+    <a class="card" href="math7a-1-1/" aria-label="进入课程：人教版数学七上 1.1 正数和负数，珠海海拔记录员">
+      <p class="book">人教版数学七上 · 1.1</p>
+      <h2>正数和负数</h2>
+      <p class="theme">珠海海拔记录员</p>
+      <p class="status" id="status">还没开始</p>
+      <span class="go">进入这一课</span>
+    </a>
+    <footer>不收集个人信息，没有登录和广告。进度只留在这台设备的浏览器里。</footer>
+  </div>
+  <script>
+    (function () {
+      var el = document.getElementById("status");
+      try {
+        var raw = localStorage.getItem("zh-math7a-1-1");
+        if (raw) {
+          var p = JSON.parse(raw);
+          if (p && p.quiz && p.quiz.status === "done" && typeof p.quiz.score === "number") {
+            el.textContent = "小测 " + p.quiz.score + " / 10";
+          } else if (p) {
+            el.textContent = "继续学习";
+          }
+        }
+      } catch (err) {}
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("sw.js").catch(function () {});
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
