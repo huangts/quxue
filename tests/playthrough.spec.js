@@ -162,7 +162,7 @@ const MUST = [
   "零上记 +，那零下和它是什么关系？",
   "下面哪些是负数？ 5, −1.5, 0, −3/4, +2, −100",
   "全对！小数、分数、大数都可以是负数。",
-  "漏选或多选时：看每个数前面的符号；0 归哪一类？",
+  "看每个数前面的符号；0 归哪一类？",
   "「+8」和「8」是什么关系？",
   "A. 同一个数，「+」可以省略",
   "B. +8 比 8 大",
@@ -215,6 +215,7 @@ const MUST = [
 test("lesson file copies the design verbatim", () => {
   const html = fs.readFileSync("math7a-1-1/index.html", "utf8");
   expect(html.includes("数轴")).toBe(false);
+  expect(html.includes("漏选或多选时")).toBe(false);
   for (const s of MUST) expect(html, s).toContain(s);
   expect(html).toContain("写出带符号的数\u3000②");
   expect(html).toContain("（基准）\u3000③");
@@ -377,7 +378,27 @@ async function assertLayout(page) {
         if (ix > 2 && iy > 2) overlaps.push(a.label + " ~ " + b.label);
       }
     }
+    function gapOf(a, b) {
+      const sepX = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
+      const sepY = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h));
+      if (sepX < 0 && sepY < 0) return 0;
+      if (sepX < 0) return sepY;
+      if (sepY < 0) return sepX;
+      return Math.hypot(sepX, sepY);
+    }
+    const tight = [];
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const gap = gapOf(boxes[i], boxes[j]);
+        if (gap < 7.5) tight.push(boxes[i].label + " ~ " + boxes[j].label + " (" + gap.toFixed(1) + "px)");
+      }
+    }
+    const main = document.getElementById("main");
     const feedbackOpen = !document.getElementById("feedback").hidden;
+    const modalOpen = !document.getElementById("modal").hidden;
+    const step = document.body.dataset.step || "";
+    const requireFit = window.innerHeight >= 800 && document.body.dataset.screen === "level" &&
+      (document.body.dataset.level === "L0" || step === "L3-q4");
     return {
       overflow: doc.scrollWidth > doc.clientWidth + 1,
       scrollWidth: doc.scrollWidth,
@@ -386,13 +407,22 @@ async function assertLayout(page) {
       landscape: window.innerWidth > window.innerHeight,
       small,
       overlaps,
-      feedbackOpen
+      tight,
+      feedbackOpen,
+      modalOpen,
+      requireFit,
+      overflowY: main.scrollHeight - main.clientHeight,
+      step
     };
   });
   expect(result.overflow, JSON.stringify(result)).toBe(false);
   expect(result.small, JSON.stringify(result.small)).toEqual([]);
-  if (!result.feedbackOpen) expect(result.overlaps, JSON.stringify(result.overlaps)).toEqual([]);
+  if (!result.feedbackOpen && !result.modalOpen) {
+    expect(result.overlaps, JSON.stringify(result.overlaps)).toEqual([]);
+    expect(result.tight, JSON.stringify(result.tight)).toEqual([]);
+  }
   if (result.landscape) expect(result.shellWidth).toBeLessThanOrEqual(720.5);
+  if (result.requireFit) expect(result.overflowY, result.step + " scrolls " + result.overflowY).toBeLessThanOrEqual(1);
 }
 
 async function assertExamples(page, step) {
@@ -533,6 +563,16 @@ async function doChoice(page, step, opts) {
   await dismiss(page, false);
 }
 
+async function assertPairFlash(page, id) {
+  const el = page.locator('[data-matched="' + id + '"]');
+  await expect(el).toHaveClass(/flash/);
+  await expect(el).toHaveCSS("animation-name", "pairflash");
+  await el.evaluate(async (node) => {
+    await Promise.all(node.getAnimations().map((a) => a.finished));
+  });
+  await expect(el).toHaveCSS("background-color", "rgb(231, 245, 234)");
+}
+
 async function doMatch(page, step, opts) {
   if (opts.wrong) {
     await dragTo(page, page.locator('[data-drag="money"]'), page.locator('[data-drop="temp"]'));
@@ -540,6 +580,7 @@ async function doMatch(page, step, opts) {
     await page.locator('[data-drag="money"]').click();
     await page.locator('[data-drop="money"]').click();
     await expect(page.locator('[data-matched="money"]')).toBeVisible();
+    await assertPairFlash(page, "money");
     await dragTo(page, page.locator('[data-drag="temp"]'), page.locator('[data-drop="temp"]'));
     await expect(page.locator('[data-matched="temp"]')).toBeVisible();
     for (const pair of step.pairs.slice(2)) {
@@ -554,9 +595,14 @@ async function doMatch(page, step, opts) {
       await page.locator('[data-drop="' + pair.id + '"]').click();
     }
   } else {
+    let flashed = false;
     for (const pair of step.pairs) {
       await page.locator('[data-drag="' + pair.id + '"]').click();
       await page.locator('[data-drop="' + pair.id + '"]').click();
+      if (!flashed) {
+        await assertPairFlash(page, pair.id);
+        flashed = true;
+      }
     }
   }
   await expect(page.locator('[data-matched="alt"] .example-tag')).toHaveCount(0);
@@ -762,7 +808,10 @@ async function playLevel(page, id, opts) {
     if (step.id === "L0-a") await expect(page.locator(".sign-key")).toHaveCount(0);
     if (step.id === "L0-b2") await expect(page.locator(".sign-key.blink")).toHaveCount(2);
     if (step.narration) await expect(page.locator(".narration")).toHaveText(step.narration);
-    if (step.tide) await expect(page.locator(".tide")).toContainText("0：今天早上的水位");
+    if (step.tide) {
+      await expect(page.locator(".tide")).toContainText("0：今天早上的水位");
+      await expect(page.locator(".prescribe .kicker")).toHaveText("规定");
+    }
     if (step.tide === "up") await expect(page.locator(".seg.on")).toHaveText("上涨记为 +");
     if (step.flip) {
       await expect(page.locator(".switch.blink")).toHaveCount(1);
@@ -818,6 +867,8 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/math7a-1-1/");
   await expect(page.getByText("珠海高度地图", { exact: true })).toBeVisible();
+  await expect(page.locator("#sound-btn")).toHaveText("音效：关");
+  await assertLayout(page);
   await expect(page.getByText("应试题型提示")).toHaveCount(0);
   await page.locator("summary", { hasText: "给家长" }).click();
   await expect(page.locator("#main")).toContainText("见 §7");
@@ -853,6 +904,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await page.locator("#sound-btn").click();
   await page.reload();
   await expect(page.locator("#sound-btn")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#sound-btn")).toHaveText("音效：开");
 
   const shots = { wrongDone: false, correctDone: false, sliderDragged: false };
   const levelShots = {
@@ -872,6 +924,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
       await page.screenshot({ path: ART + "/star-hollow.png" });
       await page.locator("#sound-btn").click();
       await expect(page.locator("#sound-btn")).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator("#sound-btn")).toHaveText("音效：关");
     }
   }
   await expect(page.locator('[data-level="L5"]')).toBeEnabled();
@@ -882,9 +935,11 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await expect(page.locator(".score")).toHaveText("10 / 10");
   await expect(page.locator("#main")).toContainText("记录员认证通过！你已经能给小珠写清楚任何高度了。");
   await expect(page.getByRole("heading", { name: "需要回看的关卡" })).toHaveCount(0);
+  await assertLayout(page);
   await page.screenshot({ path: ART + "/quiz-result.png" });
   await page.getByRole("button", { name: "回到地图", exact: true }).click();
   await expect(page.getByText("应试题型提示（可选）")).toBeVisible();
+  await assertLayout(page);
   await page.locator("#nav-btn").click();
   await expect(page.locator("#status")).toHaveText("小测 10 / 10");
   await page.goto("/math7a-1-1/");
@@ -893,6 +948,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await expect(page.locator(".score")).toHaveText("0 / 10");
   await expect(page.locator("#main")).toContainText("没关系，先回第 0 关看小珠为什么飞错，再慢慢来。");
   await expect(page.getByRole("heading", { name: "需要回看的关卡" })).toBeVisible();
+  await assertLayout(page);
   for (const id of ["L0", "L1", "L2", "L3", "L4", "L5"]) {
     await expect(page.locator('[data-action="replay-level"][data-level="' + id + '"]')).toBeVisible();
   }
@@ -940,6 +996,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await answerReviewQuestion(page, false);
   await expect(page.locator(".score")).toHaveText("3 题答对 2 题");
   expect(await page.locator('[data-action="replay-level"]').count()).toBeGreaterThan(0);
+  await assertLayout(page);
   await page.screenshot({ path: ART + "/review-result.png" });
   const starsBefore = await page.evaluate(() => localStorage.getItem("zh-math7a-1-1"));
   await page.getByRole("button", { name: "回到地图", exact: true }).click();

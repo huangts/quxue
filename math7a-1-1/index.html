@@ -44,9 +44,10 @@
     header .tap { background: transparent; color: #fff; border-color: rgba(255,255,255,.75); }
     .titles { flex: 1; min-width: 0; }
     .eyebrow { margin: 0; font-size: 12px; opacity: .9; }
-    h1 { margin: 0; font-size: 20px; line-height: 1.3; }
-    #starbar { letter-spacing: 1px; color: #ffe08a; font-size: 16px; }
-    main { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 28px; }
+    h1 { margin: 0; font-size: 20px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #starbar { letter-spacing: 1px; color: #ffe08a; font-size: 16px; flex-shrink: 0; }
+    #sound-btn { font-size: 15px; padding: 8px; white-space: nowrap; }
+    main { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 16px; }
     .tap {
       min-height: 48px;
       min-width: 48px;
@@ -65,14 +66,14 @@
     .narration, .rule {
       background: #e7f2f4;
       border-radius: 12px;
-      padding: 10px 12px;
+      padding: 8px 10px;
     }
     .num-pos { color: #1f5fbf; }
     .num-neg { color: #b3261e; }
     .num-zero { color: #444; }
     .entry, .readout {
       min-height: 48px;
-      margin: 8px 0;
+      margin: 0;
       font-size: 32px;
       font-weight: 700;
       text-align: center;
@@ -80,6 +81,7 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .readout { margin: 8px 0; }
     .notebook { display: flex; flex-direction: column; gap: 8px; }
     .note-card, .info, .panel, .merged, .hint {
       background: #fffdf8;
@@ -88,8 +90,34 @@
       padding: 10px 12px;
     }
     .note-card.is-active { outline: 3px solid #155e75; }
+    .note-card p { margin: 0; }
+    .note-card .kicker { margin: 0 0 4px; }
+    .info p { margin: 0 0 8px; }
     .kicker { margin: 0 0 4px; color: #155e75; font-size: 14px; }
-    .coast { width: 100%; height: 180px; display: block; margin: 0 0 8px; }
+    .coast { width: 100%; height: 104px; display: block; margin: 0 0 8px; }
+    .tide .coast { height: 88px; margin: 0; }
+    .fit-step { display: flex; flex-direction: column; gap: 8px; }
+    .fit-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .fit-side > .narration,
+    .fit-side > .rule,
+    .fit-side > .coast,
+    .fit-side > .tide,
+    .fit-side > .notebook,
+    .fit-side > .stem,
+    .fit-side > .stem-block { margin: 0; }
+    .entry-row { display: flex; flex-direction: column; gap: 8px; }
+    .prescribe {
+      background: #fffdf8;
+      border: 1px solid #e4d8c4;
+      border-radius: 14px;
+      padding: 8px 10px 10px;
+    }
+    .stack + .tap,
+    .tray + .tap,
+    .judge-row + .tap,
+    .panel + .tap,
+    .after-gap { margin-top: 8px; }
+    .tray { margin-top: 8px; }
     .captions { min-height: 72px; }
     .captions p { margin: 0 0 4px; font-size: 20px; }
     .numpad { display: flex; flex-direction: column; gap: 8px; }
@@ -112,7 +140,7 @@
     .bname { display: block; font-weight: 700; }
     .chip { display: inline-block; margin: 2px; font-weight: 700; }
     .easter { margin: 8px 0 0; font-size: 14px; color: #3d4a55; }
-    .tide { margin-bottom: 8px; }
+    .tide { margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
     .switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .seg { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 12px; background: #fffdf8; border: 1px solid #d9d0c0; text-align: center; padding: 8px; }
     .seg.on { outline: 3px solid #155e75; font-weight: 700; }
@@ -165,9 +193,33 @@
       from { transform: translateY(100%); }
       to { transform: translateY(0); }
     }
+    @keyframes pairflash {
+      from { background: #9ed9ad; }
+      to { background: #e7f5ea; }
+    }
     .blink { animation: keyblink .45s linear 2; }
+    .merged.flash { animation: pairflash .45s ease; }
     @media (prefers-reduced-motion: reduce) {
-      .blink, #feedback .panel { animation: none; }
+      .blink, #feedback .panel, .merged.flash { animation: none; }
+    }
+    @media (min-height: 1000px) {
+      .coast { height: 168px; }
+      .tide .coast { height: 120px; }
+    }
+    @media (max-height: 520px) {
+      header { min-height: 48px; padding: 0 8px; }
+      main { padding: 8px 8px 0; }
+      .fit-step {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+      }
+      .coast { height: 72px; }
+      .tide .coast { height: 64px; }
+      .entry-row { flex-direction: row; align-items: stretch; }
+      .entry-row .entry { flex: 1; min-width: 0; }
+      .entry-row .sign-row { width: auto; grid-template-columns: 48px 48px; }
     }
   </style>
 </head>
@@ -180,7 +232,7 @@
         <h1 id="title"></h1>
       </div>
       <span id="starbar"></span>
-      <button type="button" class="tap" id="sound-btn" data-action="sound" aria-pressed="false" aria-label="音效：关">关</button>
+      <button type="button" class="tap" id="sound-btn" data-action="sound" aria-pressed="false" aria-label="音效：关">音效：关</button>
     </header>
     <main id="main"></main>
   </div>
@@ -588,7 +640,7 @@
             { id: "c100", text: "−100", cls: "num-neg" }
           ],
           correct: ["c15", "c34", "c100"],
-          feedback: { correct: "全对！小数、分数、大数都可以是负数。", wrong: "漏选或多选时：看每个数前面的符号；0 归哪一类？" }
+          feedback: { correct: "全对！小数、分数、大数都可以是负数。", wrong: "看每个数前面的符号；0 归哪一类？" }
         },
         {
           id: "Q5", type: "single", kp: ["K4"], reviewLevels: ["L2"],
@@ -735,7 +787,7 @@
       return picked;
     }
     function freshUI() {
-      return { flow: "retry", input: "", hint: "", selected: null, disabled: {}, donePairs: {}, bucketed: {}, activityDone: false, order: null, multi: {}, sliderValue: null, animStarted: false, blinked: false, easter: false };
+      return { flow: "retry", input: "", hint: "", selected: null, disabled: {}, donePairs: {}, bucketed: {}, activityDone: false, order: null, multi: {}, sliderValue: null, animStarted: false, blinked: false, easter: false, flashId: null };
     }
     function defaultProgress() {
       const levels = {};
@@ -898,11 +950,12 @@
         '<line x1="40" y1="16" x2="40" y2="110" stroke="#444" stroke-width="4"></line>' +
         '<line x1="28" y1="70" x2="360" y2="70" stroke="#444" stroke-width="3"></line>' +
         '<text x="48" y="66" font-size="14" fill="#444">0：今天早上的水位</text></svg>' +
+        '<div class="prescribe"><p class="kicker">规定</p>' +
         '<div class="switch' + blink + '" role="group" aria-label="规定">' +
         '<span class="seg' + (up ? " on" : "") + '"' + (up ? ' aria-current="true"' : "") + '>上涨记为 +</span>' +
-        '<span class="seg' + (up ? "" : " on") + '"' + (up ? "" : ' aria-current="true"') + '>下降记为 +</span></div></div>';
+        '<span class="seg' + (up ? "" : " on") + '"' + (up ? "" : ' aria-current="true"') + '>下降记为 +</span></div></div></div>';
     }
-    function htmlNumpad(step) {
+    function htmlNumpad(step, preface) {
       const cards = (step.cards || []).map((c) => {
         return '<div class="note-card' + (c.active ? " is-active" : "") + '"' + (c.active ? ' aria-current="step"' : "") + '><p class="kicker">' + esc(c.label) + "</p><p>" + rich(c.text, c.bold) + "</p></div>";
       }).join("");
@@ -915,10 +968,10 @@
         const aria = k === "del" ? "删除" : k === "." ? "小数点" : "数字 " + k;
         return '<button type="button" class="tap" data-key="' + k + '" aria-label="' + aria + '">' + label + "</button>";
       }).join("");
-      return (cards ? '<div class="notebook">' + cards + "</div>" : "") +
-        stemHTML(step.prompt || "", step.example) +
-        '<div id="entry" class="entry ' + signClassFromText(ui.input) + '" role="status" aria-live="polite" aria-label="当前输入">' + esc(ui.input) + "</div>" +
-        '<div class="numpad">' + signs + '<div class="keys">' + keys + '</div><button type="button" class="tap primary wide" data-key="ok" aria-label="确定">确定</button></div>';
+      const side = (preface || "") + (cards ? '<div class="notebook">' + cards + "</div>" : "") + stemHTML(step.prompt || "", step.example);
+      return '<div class="fit-step"><div class="fit-side">' + side + "</div>" +
+        '<div class="numpad"><div class="entry-row"><div id="entry" class="entry ' + signClassFromText(ui.input) + '" role="status" aria-live="polite" aria-label="当前输入">' + esc(ui.input) + "</div>" +
+        signs + '</div><div class="keys">' + keys + '</div><button type="button" class="tap primary wide" data-key="ok" aria-label="确定">确定</button></div></div>';
     }
     function htmlChoice(step) {
       const opts = step.options.map((text, i) => {
@@ -957,7 +1010,8 @@
       const done = step.pairs.filter((p) => ui.donePairs[p.id]).map((p) => {
         const attr = p.example ? ' data-example-prompt="1"' : "";
         const tag = p.example ? '<span class="example-tag">示例数字</span>' : "";
-        return '<div class="merged" data-matched="' + p.id + '"' + attr + "><span>" + esc(p.left) + " ✓ " + esc(p.right) + "</span>" + tag + "</div>";
+        const flash = ui.flashId === p.id ? " flash" : "";
+        return '<div class="merged' + flash + '" data-matched="' + p.id + '"' + attr + "><span>" + esc(p.left) + " ✓ " + esc(p.right) + "</span>" + tag + "</div>";
       }).join("");
       const next = ui.activityDone ? '<button type="button" class="tap primary" id="step-next" data-action="advance">继续</button>' : "";
       return '<p class="help">' + esc(step.help) + '</p>' +
@@ -1040,15 +1094,18 @@
       if (step.type === "order") return htmlOrder(step);
       return "";
     }
-    function htmlLevel() {
-      const step = curStep();
+    function levelPreface(step) {
       const parts = [];
       if (step.narration) parts.push('<p class="narration">' + esc(step.narration) + "</p>");
       if (step.tide) parts.push(tideBlock(step));
       if (step.rule) parts.push('<p class="rule">' + esc(step.rule) + "</p>");
       if (step.scene && step.type !== "animation") parts.push(coastSVG(step.scene));
-      parts.push(renderStep(step));
       return parts.join("");
+    }
+    function htmlLevel() {
+      const step = curStep();
+      if (step.type === "numpad" || step.type === "input") return htmlNumpad(step, levelPreface(step));
+      return levelPreface(step) + renderStep(step);
     }
     function levelButton(lv) {
       const st = progress.levels[lv.id];
@@ -1090,8 +1147,9 @@
         '<p class="foot">不收集个人信息。进度只存在这台设备上。</p>';
     }
     function questionView(step) {
-      const skip = step.optional ? '<button type="button" class="tap" data-action="skip-optional" aria-label="跳过选做题">跳过</button>' : "";
-      return renderStep(step) + skip;
+      const body = renderStep(step);
+      if (!step.optional) return body;
+      return body + '<div class="after-gap"><button type="button" class="tap" data-action="skip-optional" aria-label="跳过选做题">跳过</button></div>';
     }
     function wrongLevelIdsFrom(answers) {
       const ids = [];
@@ -1112,8 +1170,10 @@
       const ids = wrongLevelIdsFrom(progress.quiz.answers);
       const links = ids.map((id) => '<button type="button" class="tap" data-action="replay-level" data-level="' + id + '">' + esc(levelName(id)) + "</button>").join("");
       return '<p class="kicker">记录员考核</p><p class="score">' + score + " / 10</p><p>" + esc(ending) + "</p>" +
-        (links ? "<h2>需要回看的关卡</h2><div class=\"stack\">" + links + "</div>" : "") +
-        '<button type="button" class="tap primary" data-action="retake-quiz">再来一次</button><button type="button" class="tap" data-action="home">回到地图</button>';
+        (links ? "<h2>需要回看的关卡</h2>" : "") +
+        '<div class="stack">' + links +
+        '<button type="button" class="tap primary" data-action="retake-quiz">再来一次</button>' +
+        '<button type="button" class="tap" data-action="home">回到地图</button></div>';
     }
     function htmlReviewResult() {
       const n = reviewLog.filter((x) => x.ok).length;
@@ -1126,8 +1186,9 @@
           buttons.push('<button type="button" class="tap" data-action="replay-level" data-level="' + id + '">回看第 ' + id.slice(1) + " 关</button>");
         });
       });
-      return '<p class="score">3 题答对 ' + n + " 题</p>" + (buttons.length ? '<div class="stack">' + buttons.join("") + "</div>" : "") +
-        '<button type="button" class="tap primary" data-action="home">回到地图</button>';
+      return '<p class="score">3 题答对 ' + n + " 题</p>" +
+        '<div class="stack">' + buttons.join("") +
+        '<button type="button" class="tap primary" data-action="home">回到地图</button></div>';
     }
     function updateStars() {
       const el = document.getElementById("starbar");
@@ -1171,7 +1232,7 @@
       }
       sound.setAttribute("aria-pressed", progress.sound ? "true" : "false");
       sound.setAttribute("aria-label", progress.sound ? "音效：开" : "音效：关");
-      sound.textContent = progress.sound ? "开" : "关";
+      sound.textContent = progress.sound ? "音效：开" : "音效：关";
       updateStars();
       document.body.dataset.screen = screen;
       document.body.dataset.level = screen === "level" ? levelId : "";
@@ -1461,6 +1522,7 @@
       if (ui.donePairs[leftId]) return;
       if (leftId === rightId) {
         ui.donePairs[leftId] = true;
+        ui.flashId = leftId;
         ui.selected = null;
         ui.hint = "";
         playCorrect();
@@ -1470,6 +1532,7 @@
         }
       } else {
         noteWrong(step.id);
+        ui.flashId = null;
         ui.selected = null;
         ui.hint = step.wrong;
       }
