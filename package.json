@@ -2,7 +2,8 @@
   "name": "quxue",
   "private": true,
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "verify": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1"

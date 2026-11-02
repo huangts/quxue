@@ -1,8 +1,44 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
+const path = require("path");
 
-const ART = "/opt/cursor/artifacts";
-fs.mkdirSync(ART, { recursive: true });
+let shotRoot = path.join("verify-output", "default");
+
+function openShots(testInfo) {
+  shotRoot = path.join("verify-output", testInfo.project.name);
+  fs.mkdirSync(shotRoot, { recursive: true });
+}
+
+function shot(name) {
+  return path.join(shotRoot, name);
+}
+
+function watchPage(page) {
+  const errors = [];
+  const external = [];
+  page.on("pageerror", (err) => errors.push(String(err)));
+  page.on("console", (msg) => {
+    if (msg.type() === "error") errors.push(msg.text());
+  });
+  page.on("request", (req) => {
+    const url = req.url();
+    if (url.startsWith("data:") || url.startsWith("blob:")) return;
+    let host = "";
+    try {
+      host = new URL(url).hostname;
+    } catch (err) {
+      external.push(url);
+      return;
+    }
+    if (host !== "127.0.0.1" && host !== "localhost") external.push(url);
+  });
+  return { errors, external };
+}
+
+function expectClean(watch) {
+  expect(watch.errors).toEqual([]);
+  expect(watch.external).toEqual([]);
+}
 
 const MUST = [
   "我是无人机小珠！请把这两个地点的高度写进记录本，我照着飞。",
@@ -227,18 +263,13 @@ test("lesson file copies the design verbatim", () => {
   expect(html).toContain('const LESSON = {');
 });
 
-test("grading, review picker, and catalog", async ({ page }) => {
-  const external = [];
-  page.on("request", (req) => {
-    const url = req.url();
-    if (url.startsWith("data:") || url.startsWith("blob:")) return;
-    if (!url.startsWith("http://127.0.0.1:4173")) external.push(url);
-  });
-  await page.setViewportSize({ width: 390, height: 844 });
+test("grading, review picker, and catalog", async ({ page }, testInfo) => {
+  openShots(testInfo);
+  const watch = watchPage(page);
   await page.goto("/");
   await expect(page.locator("h1")).toHaveText("趣学");
   await expect(page.locator("#status")).toHaveText("还没开始");
-  await page.screenshot({ path: ART + "/home-phone.png" });
+  await page.screenshot({ path: shot("home.png") });
   await page.locator("a.card").click();
   await expect(page).toHaveURL(/\/math7a-1-1\/?$/);
   await expect(page.locator("h1")).toHaveText("珠海海拔记录员");
@@ -295,7 +326,7 @@ test("grading, review picker, and catalog", async ({ page }) => {
     fee: true, book: true
   });
   expect(result.disjoint).toBe(true);
-  expect(external).toEqual([]);
+  expectClean(watch);
 });
 
 function formatSigned(v) {
@@ -527,7 +558,7 @@ async function finishCorrectInput(page, step, shots) {
     await expect(page.locator("#feedback.ok .panel")).toHaveCSS("background-color", "rgb(231, 245, 234)");
     if (shots && !shots.correctDone) {
       shots.correctDone = true;
-      await shotFeedback(page, ART + "/feedback-correct.png");
+      await shotFeedback(page, shot("feedback-correct.png"));
     }
     await dismiss(page, false);
   }
@@ -543,7 +574,7 @@ async function doChoice(page, step, opts) {
     await expect(page.locator("#feedback.bad .panel")).toHaveCSS("background-color", "rgb(255, 241, 224)");
     if (opts.shots && !opts.shots.wrongDone) {
       opts.shots.wrongDone = true;
-      await shotFeedback(page, ART + "/feedback-wrong.png");
+      await shotFeedback(page, shot("feedback-wrong.png"));
     }
     if (!retry) {
       await dismiss(page, false);
@@ -558,7 +589,7 @@ async function doChoice(page, step, opts) {
   await expect(page.locator("#feedback")).toHaveClass(/ok/);
   if (opts.shots && !opts.shots.correctDone) {
     opts.shots.correctDone = true;
-    await shotFeedback(page, ART + "/feedback-correct.png");
+    await shotFeedback(page, shot("feedback-correct.png"));
   }
   await dismiss(page, false);
 }
@@ -665,7 +696,7 @@ async function doSlider(page, step, opts) {
     await expect(page.locator("#feedback")).toHaveClass(/bad/);
     if (opts.shots && !opts.shots.wrongDone) {
       opts.shots.wrongDone = true;
-      await shotFeedback(page, ART + "/feedback-wrong.png");
+      await shotFeedback(page, shot("feedback-wrong.png"));
     }
     await dismiss(page, retry);
     if (!retry) return;
@@ -676,7 +707,7 @@ async function doSlider(page, step, opts) {
   await expect(page.locator("#feedback-text")).toHaveText(step.feedback.correct);
   if (opts.shots && !opts.shots.correctDone) {
     opts.shots.correctDone = true;
-    await shotFeedback(page, ART + "/feedback-correct.png");
+    await shotFeedback(page, shot("feedback-correct.png"));
   }
   await dismiss(page, false);
 }
@@ -727,7 +758,7 @@ async function doInput(page, step, opts) {
     await expect(page.locator("#feedback-text")).toHaveText("卡片 B 是比海平面『低』，你按的是哪个符号？");
     if (opts.shots && !opts.shots.wrongDone) {
       opts.shots.wrongDone = true;
-      await shotFeedback(page, ART + "/feedback-wrong.png");
+      await shotFeedback(page, shot("feedback-wrong.png"));
     }
     await dismiss(page, true);
     await expect(page.locator("#entry")).toHaveText("");
@@ -738,7 +769,7 @@ async function doInput(page, step, opts) {
     await expect(page.locator("#feedback-text")).toHaveText("找到了！");
     if (opts.shots && !opts.shots.correctDone) {
       opts.shots.correctDone = true;
-      await shotFeedback(page, ART + "/feedback-correct.png");
+      await shotFeedback(page, shot("feedback-correct.png"));
     }
     await dismiss(page, false);
     return;
@@ -757,7 +788,7 @@ async function doInput(page, step, opts) {
     await expect(page.locator("#feedback-text")).toHaveText(message);
     if (opts.shots && !opts.shots.wrongDone) {
       opts.shots.wrongDone = true;
-      await shotFeedback(page, ART + "/feedback-wrong.png");
+      await shotFeedback(page, shot("feedback-wrong.png"));
     }
     await dismiss(page, retry);
     if (!retry) return;
@@ -860,11 +891,10 @@ async function answerReviewQuestion(page, wrong) {
   await act(page, step, { wrong: wrong, screen: "review", shots: { wrongDone: true, correctDone: true, sliderDragged: true } });
 }
 
-test("phone playthrough, quiz, review, reset", async ({ page }) => {
+test("lesson playthrough, quiz, review, reset", async ({ page }, testInfo) => {
   test.setTimeout(600000);
-  const errors = [];
-  page.on("pageerror", (err) => errors.push(String(err)));
-  await page.setViewportSize({ width: 390, height: 844 });
+  openShots(testInfo);
+  const watch = watchPage(page);
   await page.goto("/math7a-1-1/");
   await expect(page.getByText("珠海高度地图", { exact: true })).toBeVisible();
   await expect(page.locator("#sound-btn")).toHaveText("音效：关");
@@ -872,7 +902,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await expect(page.getByText("应试题型提示")).toHaveCount(0);
   await page.locator("summary", { hasText: "给家长" }).click();
   await expect(page.locator("#main")).toContainText("见 §7");
-  await page.screenshot({ path: ART + "/lesson-home-phone.png" });
+  await page.screenshot({ path: shot("lesson-home.png") });
   await expect(page.locator('[data-level="L1"]')).toBeDisabled();
 
   await page.locator('[data-level="L0"]').click();
@@ -881,7 +911,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await expect(page.locator("#starbar")).toHaveText("★····");
   await page.locator("#nav-btn").click();
   await expect(page.locator('[data-level="L0"] .stars')).toHaveText("★····");
-  await page.screenshot({ path: ART + "/star-full.png" });
+  await page.screenshot({ path: shot("star-full.png") });
   await page.reload();
   await page.locator('[data-level="L0"]').click();
   await expect(page.locator("body")).toHaveAttribute("data-step", "L0-b");
@@ -908,12 +938,12 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
 
   const shots = { wrongDone: false, correctDone: false, sliderDragged: false };
   const levelShots = {
-    L0: ART + "/level0-phone.png",
-    L1: ART + "/level1-phone.png",
-    L2: ART + "/level2-phone.png",
-    L3: ART + "/level3-phone.png",
-    L4: ART + "/level4-phone.png",
-    L5: ART + "/level5-phone.png"
+    L0: shot("level0.png"),
+    L1: shot("level1.png"),
+    L2: shot("level2.png"),
+    L3: shot("level3.png"),
+    L4: shot("level4.png"),
+    L5: shot("level5.png")
   };
   for (const id of ["L0", "L1", "L2", "L3", "L4"]) {
     await playLevel(page, id, { wrong: true, screen: "level", shots, shot: levelShots[id] });
@@ -921,7 +951,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
       await expect(page.locator('[data-level="L0"] .stars')).toHaveText("☆☆☆☆☆");
       const plays = await page.evaluate(() => window.__ZH__.soundPlays());
       expect(plays).toBeGreaterThan(0);
-      await page.screenshot({ path: ART + "/star-hollow.png" });
+      await page.screenshot({ path: shot("star-hollow.png") });
       await page.locator("#sound-btn").click();
       await expect(page.locator("#sound-btn")).toHaveAttribute("aria-pressed", "false");
       await expect(page.locator("#sound-btn")).toHaveText("音效：关");
@@ -936,7 +966,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await expect(page.locator("#main")).toContainText("记录员认证通过！你已经能给小珠写清楚任何高度了。");
   await expect(page.getByRole("heading", { name: "需要回看的关卡" })).toHaveCount(0);
   await assertLayout(page);
-  await page.screenshot({ path: ART + "/quiz-result.png" });
+  await page.screenshot({ path: shot("quiz-result.png") });
   await page.getByRole("button", { name: "回到地图", exact: true }).click();
   await expect(page.getByText("应试题型提示（可选）")).toBeVisible();
   await assertLayout(page);
@@ -952,7 +982,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   for (const id of ["L0", "L1", "L2", "L3", "L4", "L5"]) {
     await expect(page.locator('[data-action="replay-level"][data-level="' + id + '"]')).toBeVisible();
   }
-  await page.screenshot({ path: ART + "/quiz-result-low.png" });
+  await page.screenshot({ path: shot("quiz-result-low.png") });
 
   await page.evaluate(() => {
     const p = JSON.parse(localStorage.getItem("zh-math7a-1-1"));
@@ -997,7 +1027,7 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   await expect(page.locator(".score")).toHaveText("3 题答对 2 题");
   expect(await page.locator('[data-action="replay-level"]').count()).toBeGreaterThan(0);
   await assertLayout(page);
-  await page.screenshot({ path: ART + "/review-result.png" });
+  await page.screenshot({ path: shot("review-result.png") });
   const starsBefore = await page.evaluate(() => localStorage.getItem("zh-math7a-1-1"));
   await page.getByRole("button", { name: "回到地图", exact: true }).click();
   await expect(page.locator(".due-dot")).toBeHidden();
@@ -1005,34 +1035,13 @@ test("phone playthrough, quiz, review, reset", async ({ page }) => {
   expect(stored.reviewStage).toBe(1);
   expect(stored.levels.L0.stars["L0-a"]).toBe("hollow");
   expect(JSON.parse(starsBefore).levels.L0.stars["L0-a"]).toBe("hollow");
-  expect(errors).toEqual([]);
+  expectClean(watch);
 });
 
-async function playCorrectLesson(page, shot) {
-  await page.goto("/math7a-1-1/");
-  await page.evaluate(() => localStorage.removeItem("zh-math7a-1-1"));
-  await page.reload();
-  const shots = { wrongDone: true, correctDone: true, sliderDragged: true };
-  for (const id of ["L0", "L1", "L2", "L3", "L4", "L5"]) {
-    await playLevel(page, id, { wrong: false, screen: "level", shots, shot: id === "L4" ? shot : "" });
-  }
-  await playQuiz(page, { wrong: false, screen: "quiz", shots });
-  await expect(page.locator(".score")).toHaveText("10 / 10");
-}
-
-test("iPad portrait playthrough", async ({ page }) => {
-  test.setTimeout(600000);
-  await page.setViewportSize({ width: 820, height: 1180 });
-  await playCorrectLesson(page, ART + "/ipad-portrait.png");
-});
-
-test("iPad landscape playthrough", async ({ page }) => {
-  test.setTimeout(600000);
-  await page.setViewportSize({ width: 1180, height: 820 });
-  await playCorrectLesson(page, ART + "/ipad-landscape.png");
-});
-
-test("phone landscape layout", async ({ page }) => {
+test("phone landscape layout", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.endsWith("-phone"));
+  openShots(testInfo);
+  const watch = watchPage(page);
   await page.setViewportSize({ width: 844, height: 390 });
   await page.goto("/math7a-1-1/");
   await page.evaluate(() => {
@@ -1058,10 +1067,12 @@ test("phone landscape layout", async ({ page }) => {
   await page.locator('[data-action="start-quiz"]').click();
   await assertLayout(page);
   await assertExamples(page, await getStep(page));
-  await page.screenshot({ path: ART + "/phone-landscape.png" });
+  await page.screenshot({ path: shot("phone-landscape.png") });
+  expectClean(watch);
 });
 
-test("offline reload keeps the lesson and saved progress", async ({ page, context }) => {
+test("offline reload keeps the lesson and saved progress", async ({ page, context, browserName }) => {
+  const watch = watchPage(page);
   await page.goto("/");
   const swReady = await page.evaluate(() => Promise.race([
     navigator.serviceWorker.ready.then(() => "ready"),
@@ -1084,13 +1095,19 @@ test("offline reload keeps the lesson and saved progress", async ({ page, contex
   await expect(page.locator('[data-level="L1"]')).toBeEnabled();
   await expect.poll(async () => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   await context.setOffline(true);
-  await page.reload();
+  await page.evaluate(() => location.reload());
   await expect(page.locator("h1")).toHaveText("珠海海拔记录员");
   await expect(page.locator('[data-level="L1"]')).toBeEnabled();
   await expect(page.locator("#main")).toContainText("珠海高度地图");
   const raw = await page.evaluate(() => localStorage.getItem("zh-math7a-1-1"));
   expect(JSON.parse(raw).levels.L0.status).toBe("done");
-  await page.goto("/");
-  await expect(page.locator("h1")).toHaveText("趣学");
-  await expect(page.locator("#status")).toHaveText("继续学习");
+  // Playwright WebKit errors on an offline load of a different URL. Same-document reload still uses the cache.
+  if (browserName !== "webkit") {
+    await page.goto("/");
+    await expect(page.locator("h1")).toHaveText("趣学");
+    await expect(page.locator("#status")).toHaveText("继续学习");
+  }
+  expect(watch.external).toEqual([]);
+  // WebKit logs a failed resource after the test cuts the network. The cached lesson still loads.
+  expect(watch.errors.filter((text) => !text.startsWith("Failed to load resource"))).toEqual([]);
 });
