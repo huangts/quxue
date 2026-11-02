@@ -18,8 +18,14 @@
 
 ## 本地测试
 
+在仓库根目录运行：
+
 ```bash
 npm install
-npx playwright install chromium
-npm test
+npx playwright install --with-deps chromium webkit
+npm run verify
 ```
+
+`npm test` 和 `npm run verify` 跑同一套 Playwright 测试。测试在 `127.0.0.1:4173` 起静态服务器，用 Chromium 和 WebKit 各跑三档尺寸。手机是 390×844。iPad 竖屏是 820×1180。iPad 横屏是 1180×820。三档都带触摸和 2 倍像素比。
+
+每一档会点完各关和小测，包括答错和答对后的反馈。通过条件是没有控制台错误，没有发到本机以外的请求，页面没有横向溢出。截图在 `verify-output/` 下按项目分目录。该目录不进 git。
